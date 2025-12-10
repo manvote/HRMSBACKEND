@@ -1,116 +1,86 @@
-from rest_framework.generics import GenericAPIView
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import AllowAny
-from django.contrib.auth import authenticate, get_user_model
+from rest_framework import permissions
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema
-from drf_spectacular.types import OpenApiTypes
-from django.core.mail import send_mail
-from django.conf import settings
-from .serializers import SignupSerializer, LoginSerializer, OTPVerifySerializer
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
-User = get_user_model()
-
-def get_tokens_for_user(user):
-    refresh = RefreshToken.for_user(user)
-    return {
-        "refresh": str(refresh),
-        "access": str(refresh.access_token),
-        "user_type": user.user_type,
-        "email": user.email
-    }
-
-# ---------------- SIGNUP ----------------
-class SignupView(GenericAPIView):
-    serializer_class = SignupSerializer
-    permission_classes = [AllowAny]
-
-    @extend_schema(
-        request=SignupSerializer,
-        responses={201: SignupSerializer},
-        description="Register a new user (user, hr, admin)"
-    )
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        token = get_tokens_for_user(user)
-        return Response({"user": serializer.data, "token": token}, status=status.HTTP_201_CREATED)
+from .serializers import (
+    RegisterSerializer,
+    LoginSerializer,
+    ChangePasswordSerializer,
+    MeSerializer,
+)
+from .models import User
 
 
-# ---------------- LOGIN (Send OTP) ----------------
-class LoginView(GenericAPIView):
-    serializer_class = LoginSerializer
-    permission_classes = [AllowAny]
+# REGISTER
+@extend_schema(
+    tags=["Auth"],
+    request=RegisterSerializer,
+    responses={201: dict},
+    description="Register new HRMS user"
+)
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "User registered successfully"}, status=201)
+        return Response(serializer.errors, status=400)
 
-    @extend_schema(
-        request=LoginSerializer,
-        responses={200: OpenApiTypes.OBJECT},
-        description="Login with email & password. If valid, OTP is sent to email."
-    )
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+
+# LOGIN
+@extend_schema(
+    tags=["Auth"],
+    request=LoginSerializer,
+    responses={200: dict},
+    description="Login using email + password to get JWT tokens"
+)
+class LoginView(APIView):
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user = authenticate(
-            email=serializer.validated_data["email"],
-            password=serializer.validated_data["password"]
+        user = User.objects.get(id=serializer.validated_data["user_id"])
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user": serializer.validated_data
+        }, status=200)
+
+
+# CHANGE PASSWORD
+@extend_schema(
+    tags=["Auth"],
+    request=ChangePasswordSerializer,
+    responses={200: dict},
+    description="Update password of logged-in user"
+)
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={"request": request}
         )
-        if not user:
-            return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
-
-        otp = user.generate_otp()
-
-        # Send OTP via email (prints to console in dev)
-        send_mail(
-            subject="HRMS Login OTP",
-            message=f"Your OTP is {otp}",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
-
-        return Response({"message": "OTP sent to email"}, status=status.HTTP_200_OK)
-
-
-# ---------------- OTP VERIFY ----------------
-class OTPVerifyView(GenericAPIView):
-    serializer_class = OTPVerifySerializer
-    permission_classes = [AllowAny]
-
-    @extend_schema(
-        request=OTPVerifySerializer,
-        responses={200: OpenApiTypes.OBJECT},
-        description="Verify OTP and receive JWT tokens"
-    )
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        email = serializer.validated_data["email"]
-        otp = serializer.validated_data["otp"]
-
-        try:
-            user = User.objects.get(email=email, otp=otp)
-        except User.DoesNotExist:
-            return Response({"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
-
-        user.otp = None
-        user.save()
-
-        token = get_tokens_for_user(user)
-        return Response({"message": "Login successful", "token": token}, status=status.HTTP_200_OK)
+        serializer.save()
+        return Response({"message": "Password updated successfully"}, status=200)
 
 
-# ---------------- CURRENT USER ----------------
-class MeView(GenericAPIView):
-    serializer_class = SignupSerializer
+# WHO IS LOGGED IN
+@extend_schema(
+    tags=["Auth"],
+    responses=MeSerializer,
+    description="Get details of currently authenticated user"
+)
+class MeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(
-        responses={200: SignupSerializer},
-        description="Get currently logged-in user info (JWT required)"
-    )
-    def get(self, request, *args, **kwargs):
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get(self, request):
+        serializer = MeSerializer(request.user)
+        return Response(serializer.data)

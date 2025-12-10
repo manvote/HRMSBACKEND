@@ -1,21 +1,12 @@
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework import permissions
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
-    # Admin
-    path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
+    path("auth/", include("accounts.urls")),
 
-    # Auth endpoints
-    path('auth/', include('accounts.urls')),
-
-    # DRF Spectacular OpenAPI schema
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-
-    # Swagger UI
-    path('swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-
-    # Redoc UI (optional)
-    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    # Swagger + Schema
+    path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
+    path("swagger/", SpectacularSwaggerView.as_view(url_name="api-schema")),
 ]
