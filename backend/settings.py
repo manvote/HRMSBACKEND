@@ -2,7 +2,8 @@
 import os
 from pathlib import Path
 from datetime import timedelta
-import dj_database_url
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -70,13 +71,14 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 # ---------------- DATABASE ----------------
 # prefer DATABASE_URL env var; falls back to a local sqlite for dev if not present
+# ---------------- DATABASE ----------------
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
-        conn_max_age=600,
-        ssl_require=False if os.environ.get("DJANGO_DEBUG", "False") == "True" else True,
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
+
 
 # ---------------- PASSWORD VALIDATORS ----------------
 AUTH_PASSWORD_VALIDATORS = [
@@ -141,4 +143,16 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'HRMS API',
     'DESCRIPTION': 'HRMS Authentication and APIs',
     'VERSION': '1.0.0',
+
+    # Force Swagger to always apply Bearer token
+    'SECURITY': [{'BearerAuth': []}],
+    'SECURITY_SCHEMES': {
+        'BearerAuth': {
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+        }
+    },
 }
+
+

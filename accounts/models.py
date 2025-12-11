@@ -40,3 +40,36 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+
+# ==========================
+# EMPLOYEE MODEL (SANThOSH)
+# ==========================
+class Employee(models.Model):
+    STATUS_CHOICES = [
+        ("ACTIVE", "Active"),
+        ("ON_LEAVE", "On Leave"),
+        ("INACTIVE", "Inactive"),
+    ]
+
+    employee_code = models.CharField(max_length=50, unique=True)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    department = models.CharField(max_length=100)
+    designation = models.CharField(max_length=100)
+    location = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
+    phone = models.CharField(max_length=15, null=True, blank=True)
+    date_of_joining = models.DateField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["employee_code"]
+
+    def __str__(self):
+        last = self.last_name or ""
+        return f"{self.employee_code} - {self.first_name} {last}".strip()

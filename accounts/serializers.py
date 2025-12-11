@@ -61,3 +61,15 @@ class MeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "first_name", "last_name", "user_type"]
+
+
+# ====================================
+# Employee Module Serializer 
+# ====================================
+from .models import Employee
+
+
+class EmployeeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Employee
+        fields = "__all__"
