@@ -1,12 +1,20 @@
 # backend/settings.py
+import os
 from pathlib import Path
 from datetime import timedelta
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-l!iglopb%y5=r81%+msczfnfv2c!urqronv33-ls(bz(l08d=p'
-DEBUG = True
-ALLOWED_HOSTS = []
+# ---------------- SECURITY ----------------
+# load secret from env (falls back to dev key if not provided)
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key")
+
+# enable/disable debug from env
+DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
+
+# allowed hosts from env (comma separated)
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 # ---------------- APPS ----------------
 INSTALLED_APPS = [
@@ -17,18 +25,21 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # Third-party
+    # third-party
+    'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_spectacular',
 
-    # Local apps
+    # local apps
     'accounts',
 ]
 
 # ---------------- MIDDLEWARE ----------------
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',                     # must be high in order
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',               # serve static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -43,7 +54,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [],     # add project-level templates here if needed
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -57,19 +68,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# ---------------- DATABASE (NeonDB) ----------------
+# ---------------- DATABASE ----------------
+# prefer DATABASE_URL env var; falls back to a local sqlite for dev if not present
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'neondb',
-        'USER': 'neondb_owner',
-        'PASSWORD': 'npg_DWHgMiBR0jZ8',
-        'HOST': 'ep-fancy-smoke-ad0qryk6-pooler.c-2.us-east-1.aws.neon.tech',
-        'PORT': '5432',
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        conn_max_age=600,
+        ssl_require=False if os.environ.get("DJANGO_DEBUG", "False") == "True" else True,
+    )
 }
 
 # ---------------- PASSWORD VALIDATORS ----------------
@@ -80,13 +86,21 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# ---------------- I18N/TIME ----------------
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
+# ---------------- STATIC FILES ----------------
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [
+    # BASE_DIR / "static",    # uncomment if you keep a top-level static/ folder
+]
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+# ---------------- DEFAULT PK ----------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ---------------- CUSTOM USER ----------------
@@ -107,11 +121,22 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# ---------------- EMAIL CONFIG ----------------
+# ---------------- EMAIL ----------------
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'noreply@hrms.com'
 
-# ---------------- DRF-SPECTACULAR ----------------
+# ---------------- CORS ----------------
+# comma-separated origins in env: e.g. "https://myfrontend.com,http://localhost:3000"
+raw_cors = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+if raw_cors:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in raw_cors.split(",") if o.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+# ---------------- SPECTACULAR ----------------
 SPECTACULAR_SETTINGS = {
     'TITLE': 'HRMS API',
     'DESCRIPTION': 'HRMS Authentication and APIs',
