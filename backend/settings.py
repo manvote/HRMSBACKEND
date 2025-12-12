@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ---------------- SECURITY ----------------
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key")
 DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,http://localhost:5173,https://hrmsbackend-ej88.onrender.com/").split(",")
 
 # ---------------- APPS ----------------
 INSTALLED_APPS = [
@@ -116,21 +116,43 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'noreply@hrms.com'
 
 # ---------------- CORS ----------------
-# Use env: CORS_ALLOW_ALL_ORIGINS=True to allow all
+# ---------------- SECURITY ----------------
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-secret-key")
+DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
+
+# ALLOWED_HOSTS must not contain http://, https://, or trailing slash
+ALLOWED_HOSTS = os.environ.get(
+    "DJANGO_ALLOWED_HOSTS",
+    "localhost,127.0.0.1,localhost:5173,hrmsbackend-ej88.onrender.com"
+).split(",")
+
+# Clean values
+ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
+
+# ---------------- CORS ----------------
 if os.environ.get("CORS_ALLOW_ALL_ORIGINS", "False") == "True":
     CORS_ALLOW_ALL_ORIGINS = True
 else:
     raw_cors = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+    
     if raw_cors:
-        CORS_ALLOWED_ORIGINS = [o.strip() for o in raw_cors.split(",") if o.strip()]
+        # Remove trailing slashes from origins
+        CORS_ALLOWED_ORIGINS = [
+            o.strip().rstrip("/") 
+            for o in raw_cors.split(",") 
+            if o.strip()
+        ]
     else:
         CORS_ALLOWED_ORIGINS = [
             "http://localhost:3000",
+            "http://localhost:5173",
             "http://127.0.0.1:3000",
+            "https://hrmsbackend-ej88.onrender.com",
         ]
 
-# Optional: Allow credentials if needed
+# Allow cookies, JWT with frontend
 CORS_ALLOW_CREDENTIALS = True
+
 
 # ---------------- API DOCUMENTATION ----------------
 SPECTACULAR_SETTINGS = {

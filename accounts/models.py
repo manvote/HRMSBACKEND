@@ -7,14 +7,19 @@ class UserManager(BaseUserManager):
         if not email:
             raise ValueError("Email is required")
         email = self.normalize_email(email)
+        # If must_change_password not provided, default True for user creation (so new users must change password)
+        if "must_change_password" not in extra_fields:
+            extra_fields["must_change_password"] = True
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save()
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
+        # superusers should not be forced to change password by default
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("must_change_password", False)
         return self.create_user(email, password, **extra_fields)
 
 
@@ -29,6 +34,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     user_type = models.CharField(max_length=50, choices=USER_TYPES, default="employee")
+
+    # new field to force password change on first login
+    must_change_password = models.BooleanField(default=True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

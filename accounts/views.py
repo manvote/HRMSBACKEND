@@ -1,9 +1,9 @@
+# accounts/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiExample
-from rest_framework import permissions
+from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .serializers import (
@@ -14,8 +14,7 @@ from .serializers import (
 )
 from .models import User
 
-
-# REGISTER
+# Register
 @extend_schema(
     tags=["Auth"],
     request=RegisterSerializer,
@@ -23,15 +22,16 @@ from .models import User
     description="Register new HRMS user"
 )
 class RegisterView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "User registered successfully"}, status=201)
-        return Response(serializer.errors, status=400)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "User registered successfully"}, status=201)
 
 
-# LOGIN
+# Login
 @extend_schema(
     tags=["Auth"],
     request=LoginSerializer,
@@ -39,7 +39,7 @@ class RegisterView(APIView):
     description="Login using email + password to get JWT tokens"
 )
 class LoginView(APIView):
-    permission_classes = [AllowAny]   # << ADD THIS
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -52,11 +52,13 @@ class LoginView(APIView):
         return Response({
             "refresh": str(refresh),
             "access": str(refresh.access_token),
-            "user": serializer.validated_data
+            "user": serializer.validated_data,
+            # include must_change_password so frontend can redirect to change-password flow
+            "must_change_password": getattr(user, "must_change_password", False)
         }, status=200)
 
 
-# CHANGE PASSWORD
+# Change Password
 @extend_schema(
     tags=["Auth"],
     request=ChangePasswordSerializer,
@@ -64,7 +66,7 @@ class LoginView(APIView):
     description="Update password of logged-in user"
 )
 class ChangePasswordView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = ChangePasswordSerializer(
@@ -73,17 +75,18 @@ class ChangePasswordView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        # After success, it's recommended to force user to login again on frontend
         return Response({"message": "Password updated successfully"}, status=200)
 
 
-# WHO IS LOGGED IN
+# Who is logged in
 @extend_schema(
     tags=["Auth"],
     responses=MeSerializer,
     description="Get details of currently authenticated user"
 )
 class MeView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         serializer = MeSerializer(request.user)
@@ -91,7 +94,7 @@ class MeView(APIView):
 
 
 # ============================================================
-# Employee Module 
+# Employee Module
 # ============================================================
 
 from rest_framework import viewsets
@@ -104,19 +107,8 @@ from django.db.models import Q, Count
 from .models import Employee
 from .serializers import EmployeeSerializer
 import csv, io
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
 
 
-
-
-class EmployeeViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]   # << ADD THIS
-    queryset = Employee.objects.all().order_by("employee_code")
-    serializer_class = EmployeeSerializer
-
-
-    # FILTERING (search, department, status, location)
 class EmployeeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Employee.objects.all().order_by("employee_code")
@@ -134,7 +126,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         ?page=
         """
         if self.action == "list" and self.request.query_params:
-            return [AllowAny()]  # no token needed for filters
+            return [permissions.AllowAny()]  # no token needed for filters
         return super().get_permissions()
 
     def get_queryset(self):
@@ -193,7 +185,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         }
         return Response(data)
 
-# ---------- BULK UPLOAD CSV ----------
+    # ---------- BULK UPLOAD CSV ----------
     @extend_schema(
         request={
             "multipart/form-data": {
@@ -254,7 +246,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 errors.append(f"Row {idx}: {str(e)}")
 
         return Response({"created": created, "updated": updated, "errors": errors})
-    
+
     # -------- EXPORT EMPLOYEES --------
     @action(detail=False, methods=["get"], url_path="export")
     def export_employees(self, request):
