@@ -93,8 +93,9 @@ class MeView(APIView):
         return Response(serializer.data)
 
 
+
 # ============================================================
-# Employee Module
+# Employee Module 
 # ============================================================
 
 from rest_framework import viewsets
@@ -107,58 +108,46 @@ from django.db.models import Q, Count
 from .models import Employee
 from .serializers import EmployeeSerializer
 import csv, io
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 
 
+    # FILTERING (search, department, status, location)
 class EmployeeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Employee.objects.all().order_by("employee_code")
     serializer_class = EmployeeSerializer
 
     def get_permissions(self):
-        """
-        Allow unauthenticated access for ANY filter/search/pagination request.
-        Examples:
-        ?search=
-        ?department=
-        ?location=
-        ?status=
-        ?sort=
-        ?page=
-        """
         if self.action == "list" and self.request.query_params:
-            return [permissions.AllowAny()]  # no token needed for filters
+            return [AllowAny()]
         return super().get_permissions()
 
     def get_queryset(self):
         qs = Employee.objects.all()
         params = self.request.query_params
 
-        # -------- SEARCH --------
         search = params.get("search") or params.get("query")
         if search:
             qs = qs.filter(
-                Q(first_name__icontains=search) |
-                Q(last_name__icontains=search) |
-                Q(employee_code__icontains=search) |
-                Q(email__icontains=search) |
-                Q(phone__icontains=search)
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(employee_code__icontains=search)
+                | Q(email__icontains=search)
+                | Q(phone__icontains=search)
             )
 
-        # -------- FILTERS --------
         department = params.get("department")
         status_param = params.get("status")
         location = params.get("location")
 
         if department:
             qs = qs.filter(department__iexact=department)
-
         if status_param:
             qs = qs.filter(status__iexact=status_param)
-
         if location:
             qs = qs.filter(location__iexact=location)
 
-        # -------- SORTING --------
         sort = params.get("sort")
         if sort == "name_asc":
             qs = qs.order_by("first_name")
@@ -171,7 +160,43 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
         return qs
 
-    # -------- STATS --------
+    @action(detail=False, methods=["get"], url_path="stats")
+    def stats(self, request):
+        qs = Employee.objects.all()
+        return Response({
+            "total_employees": qs.count(),
+            "active": qs.filter(status="ACTIVE").count(),
+            "on_leave": qs.filter(status="ON_LEAVE").count(),
+            "department_breakdown": list(
+                qs.values("department").annotate(count=Count("id"))
+            ),
+        })
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "format": "binary"},
+                },
+                "required": ["file"]
+            }
+        },
+        responses={200: OpenApiTypes.OBJECT}
+    )
+    @action(detail=False, methods=["post"], url_path="bulk-upload",
+            parser_classes=[MultiPartParser, FormParser])
+    def bulk_upload(self, request):
+        ...
+        return Response({"created": created, "updated": updated, "errors": errors})
+
+    @action(detail=False, methods=["get"], url_path="export")
+    def export_employees(self, request):
+        ...
+        return response
+
+
+    # ---------------- EMPLOYEE STATS ----------------
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request):
         qs = Employee.objects.all()
@@ -185,7 +210,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         }
         return Response(data)
 
-    # ---------- BULK UPLOAD CSV ----------
+    # ---------------- BULK UPLOAD CSV ----------------
     @extend_schema(
         request={
             "multipart/form-data": {
@@ -203,12 +228,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         responses={200: OpenApiTypes.OBJECT},
         description="Bulk upload employees using CSV file"
     )
-    @action(
-        detail=False,
-        methods=["post"],
-        url_path="bulk-upload",
-        parser_classes=[MultiPartParser, FormParser]
-    )
+    @action(detail=False, methods=["post"], url_path="bulk-upload",
+            parser_classes=[MultiPartParser, FormParser])
     def bulk_upload(self, request):
         file = request.FILES.get("file")
         if not file:
@@ -238,20 +259,18 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                         "status": row.get("status", "ACTIVE"),
                     }
                 )
-                if is_created:
-                    created += 1
-                else:
-                    updated += 1
+                created += int(is_created)
+                updated += int(not is_created)
             except Exception as e:
                 errors.append(f"Row {idx}: {str(e)}")
 
         return Response({"created": created, "updated": updated, "errors": errors})
 
-    # -------- EXPORT EMPLOYEES --------
+    # ---------------- EXPORT EMPLOYEES ----------------
     @action(detail=False, methods=["get"], url_path="export")
     def export_employees(self, request):
-        import csv
         from django.http import HttpResponse
+        import csv
 
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = "attachment; filename=employees.csv"
