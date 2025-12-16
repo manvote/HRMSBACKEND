@@ -95,6 +95,12 @@ class MeSerializer(serializers.ModelSerializer):
 # Employee Module Serializer
 # ====================================
 class EmployeeSerializer(serializers.ModelSerializer):
+    photo = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        use_url=True
+    )
+
     class Meta:
         model = Employee
         fields = "__all__"

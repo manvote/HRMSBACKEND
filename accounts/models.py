@@ -73,12 +73,12 @@ class Employee(models.Model):
     phone = models.CharField(max_length=15, null=True, blank=True)
     date_of_joining = models.DateField(null=True, blank=True)
 
+    # ✅ ADD THIS
+    photo = models.ImageField(
+        upload_to="employees/photos/",
+        null=True,
+        blank=True
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["employee_code"]
-
-    def __str__(self):
-        last = self.last_name or ""
-        return f"{self.employee_code} - {self.first_name} {last}".strip()

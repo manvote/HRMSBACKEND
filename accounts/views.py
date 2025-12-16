@@ -97,26 +97,86 @@ class MeView(APIView):
 # ============================================================
 # Employee Module 
 # ============================================================
+# ============================
+# Employee Module
+# ============================
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
 
 from django.db.models import Q, Count
+from django.http import HttpResponse
+import csv, io
+
 from .models import Employee
 from .serializers import EmployeeSerializer
-import csv, io
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
 
 
-    # FILTERING (search, department, status, location)
+@extend_schema_view(
+    create=extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "employee_code": {"type": "string"},
+                    "first_name": {"type": "string"},
+                    "last_name": {"type": "string"},
+                    "email": {"type": "string"},
+                    "department": {"type": "string"},
+                    "designation": {"type": "string"},
+                    "location": {"type": "string"},
+                    "phone": {"type": "string"},
+                    "status": {"type": "string"},
+                    "date_of_joining": {"type": "string", "format": "date"},
+                    "photo": {"type": "string", "format": "binary"},
+                }
+            }
+        }
+    ),
+
+    # ✅ ADD THIS (FOR PUT)
+    update=extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "employee_code": {"type": "string"},
+                    "first_name": {"type": "string"},
+                    "last_name": {"type": "string"},
+                    "email": {"type": "string"},
+                    "department": {"type": "string"},
+                    "designation": {"type": "string"},
+                    "location": {"type": "string"},
+                    "phone": {"type": "string"},
+                    "status": {"type": "string"},
+                    "date_of_joining": {"type": "string", "format": "date"},
+                    "photo": {"type": "string", "format": "binary"},
+                }
+            }
+        }
+    ),
+
+    # PATCH already works
+    partial_update=extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "photo": {"type": "string", "format": "binary"}
+                }
+            }
+        }
+    ),
+)
 class EmployeeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Employee.objects.all().order_by("employee_code")
     serializer_class = EmployeeSerializer
+    parser_classes = (MultiPartParser, FormParser)
 
     def get_permissions(self):
         if self.action == "list" and self.request.query_params:
@@ -127,39 +187,23 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         qs = Employee.objects.all()
         params = self.request.query_params
 
-        search = params.get("search") or params.get("query")
+        search = params.get("search")
         if search:
             qs = qs.filter(
-                Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(employee_code__icontains=search)
-                | Q(email__icontains=search)
-                | Q(phone__icontains=search)
+                Q(first_name__icontains=search) |
+                Q(last_name__icontains=search) |
+                Q(employee_code__icontains=search) |
+                Q(email__icontains=search) |
+                Q(phone__icontains=search)
             )
 
-        department = params.get("department")
-        status_param = params.get("status")
-        location = params.get("location")
-
-        if department:
-            qs = qs.filter(department__iexact=department)
-        if status_param:
-            qs = qs.filter(status__iexact=status_param)
-        if location:
-            qs = qs.filter(location__iexact=location)
-
-        sort = params.get("sort")
-        if sort == "name_asc":
-            qs = qs.order_by("first_name")
-        elif sort == "name_desc":
-            qs = qs.order_by("-first_name")
-        elif sort == "code_asc":
-            qs = qs.order_by("employee_code")
-        elif sort == "code_desc":
-            qs = qs.order_by("-employee_code")
+        for field in ["department", "status", "location"]:
+            if params.get(field):
+                qs = qs.filter(**{f"{field}__iexact": params[field]})
 
         return qs
 
+    # ---------- STATS ----------
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request):
         qs = Employee.objects.all()
@@ -172,78 +216,54 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             ),
         })
 
+    # ---------- BULK UPLOAD ----------
+    # ---------- BULK UPLOAD (CSV + XLSX) ----------
     @extend_schema(
         request={
             "multipart/form-data": {
                 "type": "object",
                 "properties": {
-                    "file": {"type": "string", "format": "binary"},
-                },
-                "required": ["file"]
-            }
-        },
-        responses={200: OpenApiTypes.OBJECT}
-    )
-    @action(detail=False, methods=["post"], url_path="bulk-upload",
-            parser_classes=[MultiPartParser, FormParser])
-    def bulk_upload(self, request):
-        ...
-        return Response({"created": created, "updated": updated, "errors": errors})
-
-    @action(detail=False, methods=["get"], url_path="export")
-    def export_employees(self, request):
-        ...
-        return response
-
-
-    # ---------------- EMPLOYEE STATS ----------------
-    @action(detail=False, methods=["get"], url_path="stats")
-    def stats(self, request):
-        qs = Employee.objects.all()
-        data = {
-            "total_employees": qs.count(),
-            "active": qs.filter(status="ACTIVE").count(),
-            "on_leave": qs.filter(status="ON_LEAVE").count(),
-            "department_breakdown": list(
-                qs.values("department").annotate(count=Count("id"))
-            ),
-        }
-        return Response(data)
-
-    # ---------------- BULK UPLOAD CSV ----------------
-    @extend_schema(
-        request={
-            "multipart/form-data": {
-                "type": "object",
-                "properties": {
-                    "file": {
-                        "type": "string",
-                        "format": "binary",
-                        "description": "Upload CSV file"
-                    }
+                    "file": {"type": "string", "format": "binary"}
                 },
                 "required": ["file"]
             }
         },
         responses={200: OpenApiTypes.OBJECT},
-        description="Bulk upload employees using CSV file"
     )
-    @action(detail=False, methods=["post"], url_path="bulk-upload",
-            parser_classes=[MultiPartParser, FormParser])
+    @action(detail=False, methods=["post"], url_path="bulk-upload")
     def bulk_upload(self, request):
         file = request.FILES.get("file")
         if not file:
             return Response({"error": "No file uploaded"}, status=400)
 
-        try:
-            decoded = file.read().decode("utf-8")
-        except:
-            return Response({"error": "File must be UTF-8 encoded CSV"}, status=400)
+        rows = []
+        filename = file.name.lower()
 
-        reader = csv.DictReader(io.StringIO(decoded))
+        try:
+            if filename.endswith(".csv"):
+                decoded = file.read().decode("utf-8")
+                reader = csv.DictReader(io.StringIO(decoded))
+                rows = list(reader)
+
+            elif filename.endswith(".xlsx"):
+                import openpyxl
+                wb = openpyxl.load_workbook(file)
+                sheet = wb.active
+                headers = [cell.value for cell in sheet[1]]
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    rows.append(dict(zip(headers, row)))
+            else:
+                return Response(
+                    {"error": "Only CSV or XLSX files are supported"},
+                    status=400
+                )
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
         created, updated, errors = 0, 0, []
 
-        for idx, row in enumerate(reader, start=1):
+        for idx, row in enumerate(rows, start=1):
             try:
                 emp, is_created = Employee.objects.update_or_create(
                     employee_code=row.get("employee_code"),
@@ -264,38 +284,22 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 errors.append(f"Row {idx}: {str(e)}")
 
-        return Response({"created": created, "updated": updated, "errors": errors})
+        return Response({
+            "created": created,
+            "updated": updated,
+            "errors": errors
+        })
 
-    # ---------------- EXPORT EMPLOYEES ----------------
+    # ---------- EXPORT ----------
     @action(detail=False, methods=["get"], url_path="export")
     def export_employees(self, request):
-        from django.http import HttpResponse
-        import csv
-
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = "attachment; filename=employees.csv"
 
         writer = csv.writer(response)
-        writer.writerow([
-            "employee_code", "first_name", "last_name", "email",
-            "department", "designation", "location", "phone",
-            "date_of_joining", "status", "created_at", "updated_at",
-        ])
+        writer.writerow([f.name for f in Employee._meta.fields])
 
         for emp in Employee.objects.all():
-            writer.writerow([
-                emp.employee_code,
-                emp.first_name,
-                emp.last_name or "",
-                emp.email or "",
-                emp.department,
-                emp.designation,
-                emp.location or "",
-                emp.phone or "",
-                emp.date_of_joining or "",
-                emp.status,
-                emp.created_at,
-                emp.updated_at,
-            ])
+            writer.writerow([getattr(emp, f.name) for f in Employee._meta.fields])
 
         return response
