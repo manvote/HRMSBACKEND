@@ -141,9 +141,18 @@ REST_FRAMEWORK = {
 # JWT SETTINGS
 # ---------------------------------------------------------
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    # Access token valid for 6 days
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=6),
+
+    # Refresh token valid for longer (recommended)
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+
+    # Optional but recommended
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+
     "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
 }
 
 # ---------------------------------------------------------
