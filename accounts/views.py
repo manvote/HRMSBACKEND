@@ -5,92 +5,64 @@ from rest_framework import permissions
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny, IsAuthenticated
-
-from .serializers import (
-    RegisterSerializer,
-    LoginSerializer,
-    ChangePasswordSerializer,
-    MeSerializer,
-)
-from .models import User
-
-# Register
-@extend_schema(
-    tags=["Auth"],
-    request=RegisterSerializer,
-    responses={201: dict},
-    description="Register new HRMS user"
-)
-class RegisterView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({"message": "User registered successfully"}, status=201)
+User = get_user_model()
 
 
-# Login
-@extend_schema(
-    tags=["Auth"],
-    request=LoginSerializer,
-    responses={200: dict},
-    description="Login using email + password to get JWT tokens"
-)
-class LoginView(APIView):
-    permission_classes = [AllowAny]
 
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+from rest_framework.decorators import api_view
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.response import Response
+from django.contrib.auth import get_user_model
 
-        user = User.objects.get(id=serializer.validated_data["user_id"])
+User = get_user_model()
 
-        refresh = RefreshToken.for_user(user)
+@api_view(["POST"])
+def login_view(request):
+    email = request.data.get("email")
+    password = request.data.get("password")
 
-        return Response({
-            "refresh": str(refresh),
-            "access": str(refresh.access_token),
-            "user": serializer.validated_data,
-            # include must_change_password so frontend can redirect to change-password flow
-            "must_change_password": getattr(user, "must_change_password", False)
-        }, status=200)
+    if not email or not password:
+        return Response({"error": "Email and password required"}, status=400)
 
+    user = authenticate(request, username=email, password=password)
 
-# Change Password
-@extend_schema(
-    tags=["Auth"],
-    request=ChangePasswordSerializer,
-    responses={200: dict},
-    description="Update password of logged-in user"
-)
-class ChangePasswordView(APIView):
-    permission_classes = [IsAuthenticated]
+    if not user:
+        return Response({"error": "Invalid credentials"}, status=401)
 
-    def post(self, request):
-        serializer = ChangePasswordSerializer(
-            data=request.data,
-            context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        # After success, it's recommended to force user to login again on frontend
-        return Response({"message": "Password updated successfully"}, status=200)
+    if not (user.is_superuser or user.is_super_admin):
+        return Response({"error": "Access denied"}, status=403)
+
+    refresh = RefreshToken.for_user(user)
+
+    return Response({
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "first_login": user.first_login,
+        "redirect": "reset-password" if user.first_login else "dashboard"
+    })
 
 
-# Who is logged in
-@extend_schema(
-    tags=["Auth"],
-    responses=MeSerializer,
-    description="Get details of currently authenticated user"
-)
-class MeView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        serializer = MeSerializer(request.user)
-        return Response(serializer.data)
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def reset_password(request):
+    user = request.user
+    new_password = request.data.get("new_password")
+
+    if not new_password:
+        return Response({"error": "New password required"}, status=400)
+
+    user.set_password(new_password)
+    user.first_login = False
+    user.save()
+
+    return Response({"message": "Password updated successfully"})
+
+
 
 
 
