@@ -2,9 +2,17 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 class User(AbstractUser):
+    # ❌ Remove username completely
+    username = None
+
+    # ✅ Use email as login
+    email = models.EmailField(unique=True)
+
     is_super_admin = models.BooleanField(default=False)
     first_login = models.BooleanField(default=True)
 
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = []
 
 
 # ==========================

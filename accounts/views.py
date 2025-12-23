@@ -5,19 +5,16 @@ from rest_framework import permissions
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny, IsAuthenticated
-User = get_user_model()
-
-
-
+from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view
 from django.contrib.auth import authenticate
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.response import Response
-from django.contrib.auth import get_user_model
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 
 User = get_user_model()
 
 @api_view(["POST"])
+@permission_classes([AllowAny])
 def login_view(request):
     email = request.data.get("email")
     password = request.data.get("password")
@@ -25,7 +22,8 @@ def login_view(request):
     if not email or not password:
         return Response({"error": "Email and password required"}, status=400)
 
-    user = authenticate(request, username=email, password=password)
+    # ✅ Email-based authentication
+    user = authenticate(request, email=email, password=password)
 
     if not user:
         return Response({"error": "Invalid credentials"}, status=401)
@@ -44,8 +42,8 @@ def login_view(request):
 
 
 
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
+
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -61,6 +59,7 @@ def reset_password(request):
     user.save()
 
     return Response({"message": "Password updated successfully"})
+
 
 
 

@@ -1,11 +1,11 @@
 # accounts/urls.py
 from django.urls import path, include
-from .views import RegisterView, LoginView, ChangePasswordView, MeView
+
 from rest_framework.routers import DefaultRouter
 from .views import EmployeeViewSet
 from django.urls import path
 from .views import (
-    RegisterView, login_view, reset_password, ChangePasswordView, MeView,
+   login_view, reset_password,
     EmployeeViewSet
 )
 
@@ -52,8 +52,8 @@ router.register(r"employees", EmployeeViewSet, basename="employee")
 
 urlpatterns = [
     # AUTH APIs
-     path('login/', login_view),
-    path('reset-password/', reset_password), path("register/", RegisterView.as_view()),
+   path('login/', login_view),
+    path('reset-password/', reset_password),
     
 
     # EMPLOYEE CRUD APIs (NO "api/" HERE!)
