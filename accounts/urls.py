@@ -1,70 +1,98 @@
 # accounts/urls.py
 from django.urls import path, include
 
-from rest_framework.routers import DefaultRouter
-from .views import EmployeeViewSet
+
 from django.urls import path
 from .views import (
-   login_view, reset_password,
-    EmployeeViewSet
+   login_view, reset_password
 )
 
-# -------------------------
-# EmployeeViewSet Mappings
-# -------------------------
+from django.urls import path
 
-employee_list_create = EmployeeViewSet.as_view({
-    "get": "list",
-    "post": "create",
-})
+from .views import (
+    # Employee
+    
+    EmployeeListCreateView,
+    EmployeeRetrieveView,
+    EmployeeUpdateView,
+    EmployeePatchView,
+    EmployeeDeleteView,
+    EmployeeFilterView,
+    EmployeeBulkUploadView,
+    EmployeeStatsView,
+    EmployeeExportView,
 
-employee_retrieve = EmployeeViewSet.as_view({
-    "get": "retrieve",
-})
+    EmployeeOverviewView,
+    EmployeeJobView,
+    EmployeeSalaryView,
+    
 
-employee_update = EmployeeViewSet.as_view({
-    "put": "update",
-})
-
-employee_patch = EmployeeViewSet.as_view({
-    "patch": "partial_update",
-})
-
-employee_delete = EmployeeViewSet.as_view({
-    "delete": "destroy",
-})
-
-employee_bulk_upload = EmployeeViewSet.as_view({
-    "post": "bulk_upload",
-})
-
-employee_export = EmployeeViewSet.as_view({
-    "get": "export_employees",
-})
-
-employee_stats = EmployeeViewSet.as_view({
-    "get": "stats",
-})
-
-
-router = DefaultRouter()
-router.register(r"employees", EmployeeViewSet, basename="employee")
-
+    # Offboarding
+    EmployeeOffboardingView,
+    OffboardingChecklistUpdateView,
+    EmployeeFinalSettlementView,
+    EmployeeDeactivateView,
+    EmployeeDocumentUploadView,
+    EmployeeDocumentListView,
+    EmployeeDocumentDownloadByTypeView,
+    EmployeeOverviewUpdateView,
+    EmployeeJobUpdateView,
+    EmployeeSalaryUpdateView,
+    EmployeeBulkDeleteView,
+    EmployeeBulkExportView,
+    EmployeeSalarySlipDownloadView
+)
 urlpatterns = [
     # AUTH APIs
    path('login/', login_view),
     path('reset-password/', reset_password),
     
 
-    # EMPLOYEE CRUD APIs (NO "api/" HERE!)
-    path("employees/", employee_list_create),                   # GET + POST
-    path("employees/<int:pk>/", employee_retrieve),             # GET
-    path("employees/<int:pk>/update/", employee_update),        # PUT
-    path("employees/<int:pk>/patch/", employee_patch),          # PATCH
-    path("employees/<int:pk>/delete/", employee_delete),        # DELETE
+     # ================= EMPLOYEE =================
+    path("employees/", EmployeeListCreateView.as_view()),
+    path("employees/<int:pk>/", EmployeeRetrieveView.as_view()),
 
-    # EXTRA APIs
-    path("employees/bulk-upload/", employee_bulk_upload),
-    path("employees/export/", employee_export),
-    path("employees/stats/", employee_stats),
+    path("employees/<int:pk>/update/", EmployeeUpdateView.as_view()),
+    path("employees/<int:pk>/patch/", EmployeePatchView.as_view()),
+    path("employees/<int:pk>/delete/", EmployeeDeleteView.as_view()),
+
+    # ================= FILTER =================
+    path("employees/filter/<str:filter_type>/", EmployeeFilterView.as_view()),
+
+    # ================= BULK / STATS =================
+    path("employees/bulk-upload/", EmployeeBulkUploadView.as_view()),
+    path("employees/export/", EmployeeExportView.as_view()),
+    path("employees/stats/", EmployeeStatsView.as_view()),
+
+    # ================= OFFBOARDING =================
+    path("employees/<int:pk>/offboarding/", EmployeeOffboardingView.as_view()),
+    path(
+        "employees/offboarding/checklist/<int:checklist_id>/",
+        OffboardingChecklistUpdateView.as_view()
+    ),
+    path(
+        "employees/<int:pk>/final-settlement/",
+        EmployeeFinalSettlementView.as_view()
+    ),
+    path(
+        "employees/<int:pk>/deactivate/",
+        EmployeeDeactivateView.as_view()
+    ),
+    path("employees/<int:pk>/overview/", EmployeeOverviewView.as_view()),
+    path("employees/<int:pk>/job/", EmployeeJobView.as_view()),
+    path("employees/<int:pk>/salary/", EmployeeSalaryView.as_view()),
+    path("employees/<int:pk>/overview/update/", EmployeeOverviewUpdateView.as_view()),
+    path("employees/<int:pk>/job/update/", EmployeeJobUpdateView.as_view()),
+    path("employees/<int:pk>/salary/update/", EmployeeSalaryUpdateView.as_view()),
+
+    # 📄 EMPLOYEE DOCUMENTS
+    path("employees/<int:emp_id>/documents/upload/", EmployeeDocumentUploadView.as_view() ),
+    path("employees/<int:emp_id>/documents/",EmployeeDocumentListView.as_view()),
+    path("employees/<int:emp_id>/documents/download/<str:document_type>/",EmployeeDocumentDownloadByTypeView.as_view()),
+    path("employees/bulk-delete/", EmployeeBulkDeleteView.as_view()),
+    path("employees/bulk-export/", EmployeeBulkExportView.as_view()),
+    path(
+    "employees/<int:id>/salary-slip/download/",EmployeeSalarySlipDownloadView.as_view()),
+
+
 ]
