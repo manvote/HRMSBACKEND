@@ -10,9 +10,26 @@ from rest_framework.decorators import api_view
 from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
+from .serializers import (
+    LoginSerializer,
+    LoginResponseSerializer,
+    ResetPasswordSerializer,
+    MessageResponseSerializer
+)
 
 User = get_user_model()
 
+@extend_schema(
+    request=LoginSerializer,
+    responses={
+        200: LoginResponseSerializer,
+        400: MessageResponseSerializer,
+        401: MessageResponseSerializer,
+        403: MessageResponseSerializer,
+    },
+    description="Login endpoint for superusers and super admins",
+    tags=["Authentication"]
+)
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def login_view(request):
@@ -43,8 +60,15 @@ def login_view(request):
 
 
 
-
-
+@extend_schema(
+    request=ResetPasswordSerializer,
+    responses={
+        200: MessageResponseSerializer,
+        400: MessageResponseSerializer,
+    },
+    description="Reset password for authenticated user",
+    tags=["Authentication"]
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def reset_password(request):

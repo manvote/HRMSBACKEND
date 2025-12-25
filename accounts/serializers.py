@@ -6,10 +6,38 @@ from .models import User
 from .models import Employee  # keep Employee serializer below
 
 
+# ====================================
+# Authentication Serializers
+# ====================================
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True, help_text="User email address")
+    password = serializers.CharField(
+        required=True, 
+        write_only=True,
+        style={'input_type': 'password'},
+        help_text="User password"
+    )
 
 
-          
+class LoginResponseSerializer(serializers.Serializer):
+    access = serializers.CharField(help_text="JWT access token")
+    refresh = serializers.CharField(help_text="JWT refresh token")
+    first_login = serializers.BooleanField(help_text="Whether this is user's first login")
+    redirect = serializers.CharField(help_text="Redirect path: 'reset-password' or 'dashboard'")
 
+
+class ResetPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'},
+        min_length=8,
+        help_text="New password (minimum 8 characters)"
+    )
+
+
+class MessageResponseSerializer(serializers.Serializer):
+    message = serializers.CharField(help_text="Response message")
 
 
 # ====================================
