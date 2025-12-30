@@ -201,6 +201,11 @@ class EmployeeListCreateView(APIView):
                     "type": "string",
                     "format": "binary"
                 },
+                # DOCUMENTS (optional during create)
+                "resume": {"type": "string", "format": "binary"},
+                "id_proof": {"type": "string", "format": "binary"},
+                "offer_letter": {"type": "string", "format": "binary"},
+                "experience": {"type": "string", "format": "binary"},
             }
         }
     },
@@ -209,8 +214,27 @@ class EmployeeListCreateView(APIView):
     def post(self, request):
         serializer = EmployeeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=201)
+        employee = serializer.save()
+
+        # Accept optional document uploads during employee creation
+        # Map form field names to document_type values
+        DOC_FIELDS = {
+            "resume": "RESUME",
+            "id_proof": "ID_PROOF",
+            "offer_letter": "OFFER_LETTER",
+            "experience": "EXPERIENCE",
+        }
+
+        for field_name, doc_type in DOC_FIELDS.items():
+            file_obj = request.FILES.get(field_name)
+            if file_obj:
+                EmployeeDocument.objects.update_or_create(
+                    employee=employee,
+                    document_type=doc_type,
+                    defaults={"file": file_obj}
+                )
+
+        return Response(EmployeeSerializer(employee).data, status=201)
 
     def get(self, request):
         qs = Employee.objects.all().order_by("employee_code")

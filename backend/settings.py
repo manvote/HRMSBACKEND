@@ -15,7 +15,7 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 # ALLOWED_HOSTS must NOT include http:// or https://
 ALLOWED_HOSTS = os.environ.get(
     "DJANGO_ALLOWED_HOSTS",
-    "localhost,127.0.0.1,localhost:5173,hrmsbackend-ej88.onrender.com"
+    "localhost,127.0.0.1,localhost:5173,hrmsbackend-ej88.onrender.com,hrmsbackendje88.onrender.com"
 ).split(",")
 
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
@@ -183,9 +183,16 @@ else:
             "http://localhost:5173",
             "http://127.0.0.1:3000",
             "https://hrmsbackend-ej88.onrender.com",
+            "https://hrmsbackendje88.onrender.com",
         ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# Allow origins that match deployed Render domain variants (covers missing/extra hyphens
+# or subdomain variations). This uses a regex so you don't need to list every variant.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https?://(.*\.)?hrmsbackend.*onrender\.com$",
+]
 
 # ---------------------------------------------------------
 # API DOCUMENTATION
