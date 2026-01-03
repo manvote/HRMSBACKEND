@@ -802,7 +802,10 @@ class EmployeeDocumentUploadView(APIView):
         responses=EmployeeDocumentSerializer
     )
     def post(self, request, emp_id):
-        employee = Employee.objects.get(id=emp_id)
+        try:
+            employee = Employee.objects.get(id=emp_id)
+        except Employee.DoesNotExist:
+            return Response({"error": "Employee not found"}, status=404)
 
         doc, _ = EmployeeDocument.objects.update_or_create(
             employee=employee,
@@ -819,6 +822,12 @@ class EmployeeDocumentListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, emp_id):
+        # If there is no employee with this id, return 404 to make API behavior explicit
+        try:
+            Employee.objects.get(id=emp_id)
+        except Employee.DoesNotExist:
+            return Response({"error": "Employee not found"}, status=404)
+
         docs = EmployeeDocument.objects.filter(employee_id=emp_id)
 
         return Response({
