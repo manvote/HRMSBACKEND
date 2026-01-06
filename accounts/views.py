@@ -850,8 +850,19 @@ class EmployeeDocumentDownloadByTypeView(APIView):
                 status=404
             )
 
+        # Attempt to open the file from storage. If file is missing on the
+        # storage backend (or storage misconfigured), return 404 instead of
+        # letting an exception bubble up and cause a 500 server error.
+        try:
+            file_handle = document.file.open("rb")
+        except (FileNotFoundError, ValueError, OSError, Exception):
+            return Response(
+                {"error": "File not available on storage"},
+                status=404
+            )
+
         return FileResponse(
-            document.file.open("rb"),
+            file_handle,
             as_attachment=True,
             filename=document.file.name.split("/")[-1]
         )

@@ -264,6 +264,8 @@ class EmployeeOffboardingSerializer(serializers.ModelSerializer):
             "checklist",
         ]
 class EmployeeDocumentSerializer(serializers.ModelSerializer):
+    # Return a safe URL for the file and size info without raising if file missing
+    file = serializers.SerializerMethodField()
     size = serializers.SerializerMethodField()
 
     class Meta:
@@ -278,8 +280,29 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ["uploaded_at"]
 
     def get_size(self, obj):
-        if obj.file:
-            return f"{obj.file.size / 1024:.2f} KB"
+        try:
+            if hasattr(obj, "file") and obj.file and hasattr(obj.file, "size"):
+                return f"{obj.file.size / 1024:.2f} KB"
+        except Exception:
+            # In case storage backend raises when accessing size
+            return None
+        return None
+
+    def get_file(self, obj):
+        # Return a URL if possible, otherwise a filename or None.
+        try:
+            if hasattr(obj, "file") and obj.file:
+                # obj.file.url may raise if file missing or storage misconfigured
+                try:
+                    return obj.file.url
+                except Exception:
+                    # Fall back to file name/path
+                    try:
+                        return obj.file.name
+                    except Exception:
+                        return None
+        except Exception:
+            return None
         return None
 
 class EmployeeBulkActionSerializer(serializers.Serializer):
