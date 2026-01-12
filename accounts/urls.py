@@ -37,6 +37,7 @@ from .views import (
     EmployeeDocumentDownloadByTypeView,
     EmployeeOverviewUpdateView,
     EmployeeJobUpdateView,
+    EmployeeDocumentUpdateView,
     EmployeeSalaryUpdateView,
     EmployeeBulkDeleteView,
     EmployeeBulkExportView,
@@ -87,6 +88,7 @@ urlpatterns = [
 
     # 📄 EMPLOYEE DOCUMENTS
     path("employees/<int:emp_id>/documents/upload/", EmployeeDocumentUploadView.as_view() ),
+    path("employees/<int:emp_id>/documents/update/",EmployeeDocumentUpdateView.as_view()),
     path("employees/<int:emp_id>/documents/",EmployeeDocumentListView.as_view()),
     path("employees/<int:emp_id>/documents/download/<str:document_type>/",EmployeeDocumentDownloadByTypeView.as_view()),
     path("employees/bulk-delete/", EmployeeBulkDeleteView.as_view()),

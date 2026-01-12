@@ -834,6 +834,74 @@ class EmployeeDocumentListView(APIView):
             "employee_id": emp_id,
             "documents": EmployeeDocumentSerializer(docs, many=True).data
         })
+# =================================================
+# UPDATE EMPLOYEE DOCUMENT (BY emp_id + document_type)
+# =================================================
+class EmployeeDocumentUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "document_type": {
+                        "type": "string",
+                        "enum": ["RESUME", "ID_PROOF", "OFFER_LETTER", "EXPERIENCE"]
+                    },
+                    "file": {
+                        "type": "string",
+                        "format": "binary"
+                    }
+                },
+                "required": ["document_type", "file"]
+            }
+        },
+        responses=EmployeeDocumentSerializer,
+        description="Update employee document using employee ID and document type"
+    )
+    def put(self, request, emp_id):
+        document_type = request.data.get("document_type")
+        file_obj = request.FILES.get("file")
+
+        if not document_type or not file_obj:
+            return Response(
+                {"error": "document_type and file are required"},
+                status=400
+            )
+
+        # 1️⃣ Check employee
+        try:
+            employee = Employee.objects.get(id=emp_id)
+        except Employee.DoesNotExist:
+            return Response(
+                {"error": "Employee not found"},
+                status=404
+            )
+
+        # 2️⃣ Find existing document
+        try:
+            document = EmployeeDocument.objects.get(
+                employee=employee,
+                document_type=document_type.upper()
+            )
+        except EmployeeDocument.DoesNotExist:
+            return Response(
+                {"error": "Document not found for this employee"},
+                status=404
+            )
+
+        # 3️⃣ Update file
+        document.file = file_obj
+        document.save()
+
+        return Response(
+            EmployeeDocumentSerializer(document).data,
+            status=200
+        )
+
+
 
 class EmployeeDocumentDownloadByTypeView(APIView):
     permission_classes = [IsAuthenticated]
